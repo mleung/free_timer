@@ -1,8 +1,12 @@
+require 'rubygems'
 
 class MainForm
   
   def self.show
+    @running = false
     build_ui
+    hook_up_events
+    
   end
   
   private 
@@ -18,7 +22,7 @@ class MainForm
       def create_window
         @window = Gtk::Window.new
         @window.title = "Free Timer"
-        @window.set_size_request(300, 250)
+        @window.set_size_request(200, 200)
         # Closing the form shouldn't kill the app. You have to kill it from the menu.
         @window.signal_connect("destroy") { false }
         @window.resizable = false
@@ -26,14 +30,47 @@ class MainForm
         @window.border_width = 10
       end
       
+      def hook_up_events
+        @start_button.signal_connect("clicked") { start_button_clicked }
+      end
+      
+      def start_button_clicked
+        if @start_button.label == "Start"
+          @running = true
+          unless @timer
+            # Calling new automatically starts the timer.
+            @timer = GLib::Timer.new
+          else
+            @timer.continue
+          end
+          @start_button.label = "Stop"
+          
+          t = Thread.new do
+            while @running
+              update_elapsed_time_display
+            end
+          end
+          t.run
+          
+        else
+          @timer.stop
+          @start_button.label = "Start"
+        end
+      end
+      
+      def update_elapsed_time_display
+        elapsed = Time.at(@timer.elapsed[0]).gmtime.strftime('%R:%S')
+        @time_label.set_markup("<span size='xx-large'>#{elapsed}</span>")
+      end
+      
       # FIXME: Break this up into a few smaller methods.
       def create_widgets
         top_box = Gtk::HBox.new(false, 0)
         @start_button = Gtk::Button.new("Start")
         top_box.pack_start(@start_button, true, true, 5)
-        time_label = Gtk::Label.new
-        time_label.set_markup("<span size='xx-large'>00:00:00</span>")        
-        top_box.pack_end(time_label, false, false, 5)
+        @time_label = Gtk::Label.new
+        @time_label.set_markup("<span size='xx-large'>00:00:00</span>")        
+        top_box.pack_end(@time_label, false, false, 5)
         
         mid_vert_box = Gtk::VBox.new(false, 0)
         

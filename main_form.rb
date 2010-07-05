@@ -32,7 +32,7 @@ class MainForm
         @start_button = Gtk::Button.new("Start")
         top_box.pack_start(@start_button, true, true, 5)
         time_label = Gtk::Label.new
-        time_label.set_markup("<span foreground='blue' size='xx-large'>00:00:00</span>")        
+        time_label.set_markup("<span size='xx-large'>00:00:00</span>")        
         top_box.pack_end(time_label, false, false, 5)
         
         mid_vert_box = Gtk::VBox.new(false, 0)

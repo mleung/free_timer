@@ -7,7 +7,7 @@ class MainForm
   def initialize
     build_ui
     hook_up_events
-    load_freeagent_data
+    load_projects
   end
   
   def show
@@ -17,7 +17,7 @@ class MainForm
   
   private 
     
-    def load_freeagent_data
+    def load_projects
       config = YAML.load_file("freeagent.yml")
       account = config['account']
       @costagent = CostAgent.new(account['domain'], account['username'], account['password'])
@@ -61,9 +61,9 @@ class MainForm
     
     def hook_up_events
       @start_button.signal_connect("clicked") { start_button_clicked }
-      @project_combo.signal_connect("changed") do
-        load_tasks 
-      end
+      @project_combo.signal_connect("changed") { load_tasks }
+      @post_button.signal_connect("clicked") { post_timer }
+      @reset_button.signal_connect("clicked") { reset_timer }
     end
     
     def start_button_clicked
@@ -87,11 +87,18 @@ class MainForm
     def update_elapsed_time_display
       t = Thread.new do
         while @running
-          elapsed = Time.at(@timer.elapsed[0]).gmtime.strftime('%R:%S')
-          @time_label.set_markup("<span size='xx-large'>#{elapsed}</span>")
+          @time_label.set_markup("<span size='xx-large'>#{format_elapsed_time}</span>")
         end
       end
       t.run
+    end
+    
+    def format_elapsed_time
+      Time.at(@timer.elapsed[0]).gmtime.strftime('%R:%S')
+    end
+    
+    def convert_elapsed_time_to_minutes
+      (@timer.elapsed[0] / 60) / 60
     end
     
     # FIXME: Break this up into a few smaller methods.
@@ -123,8 +130,11 @@ class MainForm
       mid_vert_box.spacing = 5
       
       bottom_box = Gtk::HBox.new
+      bottom_box.spacing = 5
       @post_button = Gtk::Button.new("Post Timer")
       bottom_box.pack_end(@post_button, false, 0)
+      @reset_button = Gtk::Button.new("Clear Timer")
+      bottom_box.pack_end(@reset_button, false, 0)
       
       main_box = Gtk::VBox.new(false, 0)
       main_box.spacing = 20
@@ -142,13 +152,22 @@ class MainForm
               <dated-on>#{Time.now.strftime("%Y-%m-%dT%H:%M:%SZ")}</dated-on>
               <project-id type="integer">#{@project_combo.active_iter[1]}</project-id>
               <task-id>#{@task_combo.active_iter[1]}</task-id>
-              <user-id>1</user-id>
+              <user-id>#{@costagent.user_id}</user-id>
               <comment>#{@comment_entry.text}</comment>
-              <hours>#{@timer.elapsed[0]}</hours>
-          </timeslip>
-      EOF
-      res = @costagent.client("timeslips").post(xml, :content_type => :xml)
+              <hours>#{convert_elapsed_time_to_minutes}</hours>
+          </timeslip> 
+EOF
+      puts xml
+      reset_timer if res = @costagent.client("timeslips").post(xml, :content_type => :xml)
     end
   
+    def reset_timer
+      @running = false
+      @timer.stop
+      @timer.reset
+      @time_label.set_markup("<span size='xx-large'>00:00:00</span>")
+      @start_button.label = "Start"
+      @comment_entry.text = ""
+    end
         
 end
